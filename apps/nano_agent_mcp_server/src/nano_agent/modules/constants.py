@@ -6,7 +6,7 @@ used across the nano agent codebase.
 """
 
 # Default Model Configuration
-DEFAULT_MODEL = "gpt-5-mini"  # Efficient, fast, good for most tasks
+DEFAULT_MODEL = "gpt-5"  # Most powerful, best for complex reasoning
 DEFAULT_PROVIDER = "azure"
 
 # Available Models by Provider
