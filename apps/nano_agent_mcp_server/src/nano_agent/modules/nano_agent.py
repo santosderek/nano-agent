@@ -58,7 +58,19 @@ from .provider_config import ProviderConfig
 
 # Initialize logger and rich console
 logger = logging.getLogger(__name__)
-console = Console()
+
+# Create a quiet console for MCP server mode
+class QuietConsole:
+    """A console that doesn't output anything - used when running as MCP server."""
+    def print(self, *args, **kwargs):
+        pass
+
+# Detect if running as MCP server by checking if we're being imported by MCP modules
+import sys
+IS_MCP_SERVER = any('mcp' in module_name.lower() for module_name in sys.modules.keys())
+
+# Use quiet console when running as MCP server to avoid JSON parsing errors
+console = QuietConsole() if IS_MCP_SERVER else Console()
 
 
 class RichLoggingHooks(RunHooksBase):
