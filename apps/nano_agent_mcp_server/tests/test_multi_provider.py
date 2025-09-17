@@ -2,7 +2,7 @@
 Test multi-provider support for nano agent.
 
 This test verifies that the provider configuration works correctly
-for OpenAI, Anthropic, and Ollama providers.
+for OpenAI, Anthropic, Ollama, and Azure providers.
 """
 
 import pytest
@@ -209,6 +209,109 @@ class TestProviderConfig:
             
             ProviderConfig.setup_provider("anthropic")
             mock_disable.assert_not_called()
+    
+    def test_create_agent_azure(self):
+        """Test creating an Azure OpenAI agent."""
+        with patch('nano_agent.modules.provider_config.AsyncOpenAI') as MockOpenAI, \
+             patch('nano_agent.modules.provider_config.OpenAIChatCompletionsModel') as MockModel, \
+             patch('nano_agent.modules.provider_config.Agent') as MockAgent, \
+             patch.dict(os.environ, {
+                 'AZURE_OPENAI_ENDPOINT': 'https://test.openai.azure.com',
+                 'AZURE_OPENAI_API_KEY': 'test-key',
+                 'AZURE_OPENAI_DEPLOYMENT': 'gpt-5-mini'
+             }):
+            
+            mock_client = Mock()
+            MockOpenAI.return_value = mock_client
+            
+            mock_model = Mock()
+            MockModel.return_value = mock_model
+            
+            mock_agent = Mock()
+            MockAgent.return_value = mock_agent
+            
+            agent = ProviderConfig.create_agent(
+                name="TestAgent",
+                instructions="Test instructions",
+                tools=[],
+                model="gpt-5-mini",
+                provider="azure",
+                model_settings=None
+            )
+            
+            MockOpenAI.assert_called_once_with(
+                base_url="https://test.openai.azure.com/openai/deployments/gpt-5-mini",
+                api_key="test-key",
+                default_headers={"api-key": "test-key"},
+                default_query={"api-version": "2024-05-01-preview"},
+            )
+            
+            MockModel.assert_called_once_with(
+                model="gpt-5-mini",
+                openai_client=mock_client
+            )
+            
+            MockAgent.assert_called_once_with(
+                name="TestAgent",
+                instructions="Test instructions",
+                tools=[],
+                model=mock_model,
+                model_settings=None
+            )
+            assert agent == mock_agent
+    
+    def test_create_agent_azure_missing_endpoint(self):
+        """Test creating Azure agent with missing endpoint raises error."""
+        with patch.dict(os.environ, {'AZURE_OPENAI_API_KEY': 'test-key'}):
+            with pytest.raises(ValueError, match="Missing AZURE_OPENAI_ENDPOINT or AZURE_OPENAI_API_KEY"):
+                ProviderConfig.create_agent(
+                    name="TestAgent",
+                    instructions="Test instructions", 
+                    tools=[],
+                    model="gpt-5-mini",
+                    provider="azure",
+                    model_settings=None
+                )
+    
+    def test_create_agent_azure_missing_api_key(self):
+        """Test creating Azure agent with missing API key raises error."""
+        with patch.dict(os.environ, {'AZURE_OPENAI_ENDPOINT': 'https://test.openai.azure.com'}):
+            with pytest.raises(ValueError, match="Missing AZURE_OPENAI_ENDPOINT or AZURE_OPENAI_API_KEY"):
+                ProviderConfig.create_agent(
+                    name="TestAgent",
+                    instructions="Test instructions",
+                    tools=[],
+                    model="gpt-5-mini", 
+                    provider="azure",
+                    model_settings=None
+                )
+    
+    def test_validate_provider_setup_valid_azure(self):
+        """Test validation for valid Azure setup."""
+        with patch.dict(os.environ, {
+            'AZURE_OPENAI_API_KEY': 'test-key',
+            'AZURE_OPENAI_ENDPOINT': 'https://test.openai.azure.com'
+        }):
+            is_valid, error = ProviderConfig.validate_provider_setup(
+                "azure",
+                "gpt-5-mini",
+                AVAILABLE_MODELS,
+                PROVIDER_REQUIREMENTS
+            )
+            assert is_valid is True
+            assert error is None
+    
+    def test_validate_provider_setup_azure_missing_api_key(self):
+        """Test Azure validation with missing API key."""
+        with patch.dict(os.environ, {}, clear=True):
+            is_valid, error = ProviderConfig.validate_provider_setup(
+                "azure",
+                "gpt-5-mini",
+                AVAILABLE_MODELS,
+                PROVIDER_REQUIREMENTS
+            )
+            assert is_valid is False
+            assert "Missing environment variable: AZURE_OPENAI_API_KEY" in error
 
 
 if __name__ == "__main__":

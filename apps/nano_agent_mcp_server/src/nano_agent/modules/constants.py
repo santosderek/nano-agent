@@ -19,6 +19,7 @@ AVAILABLE_MODELS = {
         "claude-3-haiku-20240307",
     ],
     "ollama": ["gpt-oss:20b", "gpt-oss:120b"],
+    "azure": ["gpt-5", "gpt-5-mini", "gpt-5-nano", "gpt-4o"],  # Mirror OpenAI models for deployments
 }
 
 # Model Display Names and Descriptions
@@ -40,6 +41,7 @@ PROVIDER_REQUIREMENTS = {
     "openai": "OPENAI_API_KEY",
     "anthropic": "ANTHROPIC_API_KEY",
     "ollama": None,  # No API key needed
+    "azure": "AZURE_OPENAI_API_KEY",
 }
 
 # Agent Configuration
@@ -97,7 +99,7 @@ If asked about general information, respond and do not use any tools.
 # Error Messages
 ERROR_NO_API_KEY = "{} environment variable is not set"
 ERROR_PROVIDER_NOT_SUPPORTED = (
-    "Provider '{}' not supported. Available providers: openai, anthropic, ollama"
+    "Provider '{}' not supported. Available providers: openai, anthropic, ollama, azure"
 )
 ERROR_FILE_NOT_FOUND = "Error: File not found: {}"
 ERROR_NOT_A_FILE = "Error: Path is not a file: {}"

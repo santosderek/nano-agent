@@ -71,7 +71,7 @@ class ProviderConfig:
             instructions: System instructions for the agent
             tools: List of tool functions
             model: Model identifier
-            provider: Provider name ('openai', 'anthropic', 'ollama')
+            provider: Provider name ('openai', 'anthropic', 'ollama', 'azure')
             model_settings: Optional model settings
             
         Returns:
@@ -124,6 +124,35 @@ class ProviderConfig:
                 model=OpenAIChatCompletionsModel(
                     model=model,
                     openai_client=ollama_client
+                ),
+                model_settings=model_settings
+            )
+        
+        elif provider == "azure":
+            # Use OpenAI SDK with Azure OpenAI endpoint
+            logger.debug(f"Creating Azure OpenAI agent with model/deployment: {model}")
+            endpoint = os.getenv("AZURE_OPENAI_ENDPOINT", "").rstrip("/")
+            api_key = os.getenv("AZURE_OPENAI_API_KEY")
+            api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2024-05-01-preview")
+            deployment = os.getenv("AZURE_OPENAI_DEPLOYMENT") or model
+            
+            if not endpoint or not api_key:
+                raise ValueError("Missing AZURE_OPENAI_ENDPOINT or AZURE_OPENAI_API_KEY for Azure provider")
+            
+            azure_client = AsyncOpenAI(
+                base_url=f"{endpoint}/openai/deployments/{deployment}",
+                api_key=api_key,
+                default_headers={"api-key": api_key},
+                default_query={"api-version": api_version},
+            )
+            
+            return Agent(
+                name=name,
+                instructions=instructions,
+                tools=tools,
+                model=OpenAIChatCompletionsModel(
+                    model=deployment,  # treat model as deployment name
+                    openai_client=azure_client
                 ),
                 model_settings=model_settings
             )
