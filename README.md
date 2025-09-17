@@ -414,6 +414,16 @@ The nano agent supports multiple LLM providers through a unified interface using
 - **Implementation**: Uses Ollama's OpenAI-compatible API
 - **Base URL**: `http://localhost:11434/v1`
 
+#### Azure OpenAI
+- **Models**: `gpt-5`, `gpt-5-mini`, `gpt-5-nano`, `gpt-4o` (deployment names)
+- **Requirements**: Azure OpenAI service with the following environment variables:
+  - `AZURE_OPENAI_ENDPOINT`: Your Azure OpenAI endpoint (e.g., `https://your-resource.openai.azure.com`)
+  - `AZURE_OPENAI_API_KEY`: Your Azure OpenAI API key
+  - `AZURE_OPENAI_API_VERSION`: API version (default: `2024-05-01-preview`)
+  - `AZURE_OPENAI_DEPLOYMENT`: Deployment name (optional, uses model parameter if not set)
+- **Implementation**: Uses Azure OpenAI's OpenAI-compatible API
+- **Special Features**: Same GPT-5 handling as OpenAI (max_completion_tokens, temperature)
+
 ### Using Different Providers
 
 #### CLI Usage
@@ -429,6 +439,10 @@ uv run nano-cli run "Write a test file" --model claude-3-haiku-20240307 --provid
 
 # Ollama (local)
 uv run nano-cli run "List files" --model gpt-oss:20b --provider ollama
+
+# Azure OpenAI
+uv run nano-cli run "Create a hello world script" --model gpt-5-mini --provider azure
+uv run nano-cli run "Analyze this code" --model gpt-5 --provider azure
 ```
 
 ## Multi-Model Evaluation System
