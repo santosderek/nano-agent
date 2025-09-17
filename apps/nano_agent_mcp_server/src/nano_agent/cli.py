@@ -33,11 +33,14 @@ from .modules.constants import (
 app = typer.Typer()
 console = Console()
 
-def check_api_key():
-    """Check if OpenAI API key is set."""
-    if not os.getenv("OPENAI_API_KEY"):
-        console.print(f"[red]Error: {ERROR_NO_API_KEY}[/red]")
-        console.print("Please set it with: export OPENAI_API_KEY=your-api-key")
+def check_api_key(provider: str = "openai"):
+    """Check if required API key is set for the given provider."""
+    from .modules.constants import PROVIDER_REQUIREMENTS
+    
+    required_key = PROVIDER_REQUIREMENTS.get(provider)
+    if required_key and not os.getenv(required_key):
+        console.print(f"[red]Error: Missing environment variable: {required_key}[/red]")
+        console.print(f"Please set it with: export {required_key}=your-api-key")
         sys.exit(1)
 
 @app.command()
@@ -95,7 +98,7 @@ def run(
     verbose: bool = typer.Option(False, help="Show detailed output")
 ):
     """Run the nano agent with a prompt."""
-    check_api_key()
+    check_api_key(provider)
     
     console.print(Panel(f"[cyan]Running Nano Agent[/cyan]\nModel: {model}\nProvider: {provider}", expand=False))
     console.print(f"\n[yellow]Prompt:[/yellow] {prompt}\n")
@@ -165,7 +168,7 @@ def run(
 @app.command()
 def demo():
     """Run a demo showing various agent capabilities."""
-    check_api_key()
+    check_api_key(DEFAULT_PROVIDER)
     
     console.print(Panel("[cyan]Nano Agent Demo[/cyan]", expand=False))
     
@@ -193,7 +196,7 @@ def demo():
 @app.command()
 def interactive():
     """Run the agent in interactive mode."""
-    check_api_key()
+    check_api_key(DEFAULT_PROVIDER)
     
     console.print(Panel("[cyan]Nano Agent Interactive Mode[/cyan]\nType 'exit' to quit", expand=False))
     
