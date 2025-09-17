@@ -109,7 +109,7 @@ class TestPromptNanoAgentTool:
         )
         
         assert result["success"] is False
-        assert "Input should be 'openai' or 'anthropic'" in result["error"]
+        assert "Input should be 'openai', 'anthropic', 'ollama' or 'azure'" in result["error"]
 
 
 class TestUtilityFunctions:

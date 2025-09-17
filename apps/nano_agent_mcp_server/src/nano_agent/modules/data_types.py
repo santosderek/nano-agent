@@ -7,6 +7,7 @@ All request/response models using Pydantic for validation and type safety.
 from pydantic import BaseModel, Field
 from typing import Literal, Optional, Dict, Any, List
 from datetime import datetime
+from .constants import DEFAULT_MODEL, DEFAULT_PROVIDER
 
 
 # MCP Tool Request/Response Models
@@ -20,11 +21,11 @@ class PromptNanoAgentRequest(BaseModel):
         max_length=10000
     )
     model: str = Field(
-        default="gpt-5-mini",
+        default=DEFAULT_MODEL,
         description="LLM model to use for the agent"
     )
     provider: Literal["openai", "anthropic", "ollama", "azure"] = Field(
-        default="openai",
+        default=DEFAULT_PROVIDER,
         description="LLM provider for the agent"
     )
 
