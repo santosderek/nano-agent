@@ -577,16 +577,19 @@ async def prompt_nano_agent(
     ctx: Any = None  # Context will be injected by FastMCP when registered
 ) -> Dict[str, Any]:
     """
-    Execute an autonomous agent with a natural language prompt.
-    
-    This tool creates an AI agent that can perform complex, multi-step tasks
-    autonomously based on your natural language description. The agent has
-    access to file system tools and can read existing files, create new files,
-    and perform various data processing and code generation tasks.
-    
-    This implementation uses the OpenAI Agent SDK for robust tool handling
-    and conversation management.
-    
+    Execute an autonomous agent with REAL FILE SYSTEM OPERATIONS using LangGraph.
+
+    This tool creates an AI agent using LangGraph's create_react_agent (like DeepAgents)
+    but performs ACTUAL file system operations instead of virtual ones. Key features:
+    - Uses LangGraph create_react_agent architecture (NO OpenAI SDK)
+    - Performs REAL file operations with comprehensive verification
+    - Every operation is verified on the actual file system
+    - Eliminates phantom operations completely
+    - Based on DeepAgents architecture but with real file access
+
+    The agent uses direct file system tools that perform actual disk operations
+    and verify every single operation to ensure it really happened.
+
     Args:
         agentic_prompt: Natural language description of the work to be done.
                        Be specific and detailed for best results.
@@ -594,79 +597,97 @@ async def prompt_nano_agent(
                        - "Read all Python files in src/ and create a summary document"
                        - "Generate unit tests for the data_processing module"
                        - "Create a REST API with CRUD operations for a todo list"
-        
+
         model: The LLM model to use for the agent. Options vary by provider:
                OpenAI: gpt-5-mini (default), gpt-5-nano, gpt-5, gpt-4o
                Anthropic: claude-opus-4-1-20250805, claude-sonnet-4-20250514, etc.
                Ollama: gpt-oss:20b, gpt-oss:120b (local models)
-        
+
         provider: The LLM provider. Options:
                  - "openai" (default): OpenAI's GPT models
                  - "anthropic": Anthropic's Claude models via LiteLLM
                  - "ollama": Local models via Ollama
-        
+
         ctx: MCP context (automatically injected)
-    
+
     Returns:
         Dictionary containing:
-        - success: Whether the agent completed successfully
-        - result: The agent's execution result or output
-        - error: Error message if the execution failed
-        - metadata: Additional execution information
-        - execution_time_seconds: Total time taken
-        
+        - success: Whether the agent completed successfully with verification
+        - result: The agent's execution result with verification details
+        - error: Error message if execution or verification failed
+        - metadata: Comprehensive reliability and verification information
+        - execution_time_seconds: Total time taken including all checks
+
+    Reliability Features:
+        - All file operations use verified_* tools with dual verification
+        - Preflight checks ensure file system access before execution
+        - Environment detection identifies potential restrictions
+        - Comprehensive error handling with specific failure details
+        - No phantom operations - either works verifiably or fails clearly
+
     Examples:
         >>> await prompt_nano_agent(
         ...     "Create a Python function that calculates fibonacci numbers"
         ... )
-        {"success": True, "result": "Created fibonacci.py with optimized function"}
-        
+        {"success": True, "result": "✅ RELIABLE EXECUTION COMPLETED\n...✅ VERIFIED SUCCESS: Wrote and verified..."}
+
         >>> await prompt_nano_agent(
-        ...     "Analyze all JSON files and create a schema document",
+        ...     "Test file system access and create a simple file",
         ...     model="gpt-5"
         ... )
-        {"success": True, "result": "Created schema.md with 15 JSON schemas analyzed"}
+        {"success": True, "result": "✅ RELIABLE EXECUTION COMPLETED\n...VERIFICATION SUMMARY: All operations verified"}
     """
     try:
         # Report progress if context is available
         if ctx:
-            await ctx.report_progress(0.1, 1.0, "Initializing agent...")
-        
+            await ctx.report_progress(0.1, 1.0, "Initializing reliable agent with preflight checks...")
+
         # Create and validate request
         request = PromptNanoAgentRequest(
             agentic_prompt=agentic_prompt,
             model=model,
             provider=provider
         )
-        
+
         if ctx:
-            await ctx.report_progress(0.3, 1.0, "Executing agent task...")
-        
-        # Execute the agent (disable rich logging when called via MCP to avoid interference)
-        # Use async version if we're already in an async context
-        response = await _execute_nano_agent_async(request, enable_rich_logging=(ctx is None))
-        
+            await ctx.report_progress(0.2, 1.0, "Initializing REAL file system agent...")
+
+        # Import and use the REAL agent executor (LangGraph + real file ops)
+        from .real_agent import execute_real_nano_agent
+
         if ctx:
-            await ctx.report_progress(1.0, 1.0, "Task completed")
+            await ctx.report_progress(0.4, 1.0, "Executing REAL agent with LangGraph and verified file operations...")
+
+        # Execute using the REAL file system architecture (NO OpenAI SDK)
+        response = await execute_real_nano_agent(request)
+
+        if ctx:
+            await ctx.report_progress(1.0, 1.0, "REAL agent execution completed")
             if response.success:
-                await ctx.info(SUCCESS_AGENT_COMPLETE.format(response.execution_time_seconds))
+                tool_uses = response.metadata.get("tool_uses", 0)
+                verifications = response.metadata.get("verifications", 0)
+                await ctx.info(f"REAL agent completed successfully - {tool_uses} tools used, {verifications} verifications passed in {response.execution_time_seconds:.3f}s")
             else:
-                await ctx.error(f"Agent failed: {response.error}")
-        
+                await ctx.error(f"REAL agent failed: {response.error}")
+
         # Convert response to dictionary for MCP protocol
         return response.model_dump()
-        
+
     except Exception as e:
-        logger.error(f"Error in prompt_nano_agent: {str(e)}", exc_info=True)
-        
+        logger.error(f"Error in reliable prompt_nano_agent: {str(e)}", exc_info=True)
+
         if ctx:
-            await ctx.error(f"Execution failed: {str(e)}")
-        
-        # Return error response
+            await ctx.error(f"Reliable execution failed: {str(e)}")
+
+        # Return error response with reliability metadata
         error_response = PromptNanoAgentResponse(
             success=False,
-            error=str(e),
-            metadata={"error_type": type(e).__name__}
+            error=f"Reliable agent system error: {str(e)}",
+            metadata={
+                "error_type": type(e).__name__,
+                "reliability_system": "error",
+                "system_component": "reliable_agent_wrapper"
+            }
         )
         return error_response.model_dump()
 
@@ -675,19 +696,111 @@ async def prompt_nano_agent(
 
 async def get_agent_status() -> Dict[str, Any]:
     """
-    Get the current status of the nano agent system.
-    
-    This is a utility function for monitoring and debugging.
+    Get the current status of the nano agent system with reliability information.
+
+    This utility function provides comprehensive status including reliability system status.
     """
-    return {
-        "status": "operational",
-        "version": VERSION,
-        "available_models": AVAILABLE_MODELS,
-        "available_providers": list(AVAILABLE_MODELS.keys()),
-        "tools_available": AVAILABLE_TOOLS,
-        "agent_sdk": True,
-        "agent_sdk_version": "0.2.5"  # From openai-agents package
-    }
+    try:
+        # Import reliability status
+        from .reliable_agent import get_reliability_status
+
+        # Get base status
+        base_status = {
+            "status": "operational",
+            "version": VERSION,
+            "available_models": AVAILABLE_MODELS,
+            "available_providers": list(AVAILABLE_MODELS.keys()),
+            "tools_available": AVAILABLE_TOOLS,
+            "agent_sdk": True,
+            "agent_sdk_version": "0.2.5",  # From openai-agents package
+            "reliability_enabled": True
+        }
+
+        # Add reliability status
+        reliability_status = get_reliability_status()
+        base_status.update(reliability_status)
+
+        return base_status
+
+    except Exception as e:
+        return {
+            "status": "error",
+            "version": VERSION,
+            "error": f"Status check failed: {str(e)}",
+            "reliability_enabled": False
+        }
+
+
+async def get_reliability_report() -> Dict[str, Any]:
+    """
+    Get a comprehensive reliability report for the nano agent system.
+
+    Returns detailed information about environment, preflight checks, and verification capabilities.
+    """
+    try:
+        from .reliable_agent import get_reliability_status
+        from .environment_detector import detect_environment
+        from .preflight import run_preflight_checks
+
+        # Gather comprehensive reliability information
+        reliability_status = get_reliability_status()
+        environment_info = detect_environment()
+        preflight_results = run_preflight_checks()
+
+        return {
+            "timestamp": datetime.now().isoformat(),
+            "reliability_system": reliability_status,
+            "environment_analysis": environment_info,
+            "preflight_checks": preflight_results,
+            "overall_operational": (
+                reliability_status.get("file_system_operational", False) and
+                environment_info.get("risk_level") != "CRITICAL" and
+                preflight_results.get("is_operational", False)
+            ),
+            "recommendations": _generate_reliability_recommendations(
+                reliability_status, environment_info, preflight_results
+            )
+        }
+
+    except Exception as e:
+        return {
+            "timestamp": datetime.now().isoformat(),
+            "error": f"Reliability report generation failed: {str(e)}",
+            "error_type": type(e).__name__
+        }
+
+
+def _generate_reliability_recommendations(reliability_status: Dict, env_info: Dict, preflight: Dict) -> List[str]:
+    """Generate recommendations based on reliability analysis."""
+    recommendations = []
+
+    # Check critical issues
+    if not reliability_status.get("file_system_operational", False):
+        recommendations.append("CRITICAL: File system access is blocked - check container mounts and permissions")
+
+    if env_info.get("risk_level") == "CRITICAL":
+        recommendations.append("CRITICAL: Environment risk level is critical - review environment restrictions")
+
+    if not preflight.get("is_operational", False):
+        recommendations.append("WARNING: Preflight checks failed - review file system permissions")
+
+    # Check warnings
+    if env_info.get("execution_context", {}).get("containerized", False):
+        recommendations.append("INFO: Running in container - ensure proper volume mounts for file operations")
+
+    if env_info.get("execution_context", {}).get("sandboxed", False):
+        recommendations.append("WARNING: Sandbox environment detected - file operations may be restricted")
+
+    # Performance recommendations
+    fs_access = env_info.get("file_system_access", {})
+    write_success_rate = fs_access.get("write_success_rate", 0)
+    if write_success_rate < 100 and write_success_rate > 0:
+        recommendations.append(f"INFO: Limited file system access ({write_success_rate:.1f}% success rate)")
+
+    if not recommendations:
+        recommendations.append("✅ System is operating optimally for reliable file operations")
+
+    return recommendations
 
 
 def validate_model_provider_combination(model: str, provider: str) -> bool:

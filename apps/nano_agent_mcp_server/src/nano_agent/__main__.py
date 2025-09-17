@@ -11,8 +11,8 @@ from mcp.server.fastmcp import FastMCP
 # Load environment variables from .env file
 load_dotenv()
 
-# Import our nano agent tool
-from .modules.nano_agent import prompt_nano_agent
+# Import our nano agent tools
+from .modules.nano_agent import prompt_nano_agent, get_reliability_report
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -22,23 +22,27 @@ logger = logging.getLogger(__name__)
 mcp = FastMCP(
     name="nano-agent",
     instructions="""
-    A powerful MCP server that bridges Model Context Protocol with OpenAI's Agent SDK.
-    
-    This server enables autonomous agent execution through natural language prompts,
-    allowing clients to describe work in plain English and have it completed by
-    an AI agent with access to file system tools.
-    
-    The agent can read files, create files, and perform complex multi-step tasks
-    autonomously, making it ideal for code generation, data processing, and
-    automation workflows.
-    
-    Main tool:
-    - prompt_nano_agent: Execute an autonomous agent with a natural language task description
+    A powerful MCP server with RELIABLE ARCHITECTURE that bridges Model Context Protocol
+    with OpenAI's Agent SDK and comprehensive verification systems.
+
+    This server enables autonomous agent execution with guaranteed reliability through:
+    - Mandatory file operation verification
+    - Preflight checks for file system access
+    - Environment detection and risk assessment
+    - Fail-fast mechanisms to prevent phantom operations
+
+    The agent uses verified tools that ensure all operations are actually performed
+    and independently verified before reporting success.
+
+    Available tools:
+    - prompt_nano_agent: Execute a reliable agent with verified file operations
+    - get_reliability_report: Get comprehensive system reliability analysis
     """
 )
 
-# Register the nano agent tool
+# Register the nano agent tools
 mcp.tool()(prompt_nano_agent)
+mcp.tool()(get_reliability_report)
 
 
 def run():
