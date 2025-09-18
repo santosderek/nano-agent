@@ -1,15 +1,16 @@
 """
-Direct File System Tools - NO SDK DEPENDENCIES.
+Direct File System Tools with FORCED SELF-VALIDATION.
 
 This module provides real file system operations using native Python
-with LangChain tool decorators, following the DeepAgents pattern but
-for ACTUAL file operations instead of virtual ones.
+with mandatory external validation that cannot be faked or simulated.
+Every operation must prove it actually occurred using multiple verification methods.
 """
 
 import os
 import sys
 import time
 import subprocess
+import hashlib
 from pathlib import Path
 from typing import Optional, Union, Any
 from datetime import datetime
@@ -30,6 +31,11 @@ SYNC_DELAY = 0.1
 
 class DirectOperationError(Exception):
     """Raised when direct file operations fail verification."""
+    pass
+
+
+class ValidationFailure(Exception):
+    """Raised when external validation proves an operation didn't occur."""
     pass
 
 
@@ -65,6 +71,86 @@ def _verify_operation_with_retries(verification_func, *args, **kwargs) -> bool:
             time.sleep(SYNC_DELAY * (attempt + 1))
 
     return False
+
+
+def _external_validation_file_exists(file_path: str) -> bool:
+    """FORCED external validation using multiple independent methods."""
+    path = Path(file_path).resolve()
+
+    # Method 1: Python pathlib
+    exists_pathlib = path.exists() and path.is_file()
+
+    # Method 2: os.path
+    exists_os = os.path.exists(str(path)) and os.path.isfile(str(path))
+
+    # Method 3: subprocess ls (cannot be faked)
+    try:
+        result = subprocess.run(['ls', '-la', str(path)], capture_output=True, text=True, timeout=5)
+        exists_subprocess = result.returncode == 0 and str(path) in result.stdout
+    except:
+        exists_subprocess = False
+
+    # Method 4: stat command (another external check)
+    try:
+        stat_result = subprocess.run(['stat', str(path)], capture_output=True, text=True, timeout=5)
+        exists_stat = stat_result.returncode == 0
+    except:
+        exists_stat = False
+
+    # ALL methods must agree - no faking allowed
+    consensus = exists_pathlib and exists_os and exists_subprocess and exists_stat
+
+    logger.info(f"EXTERNAL FILE VALIDATION {file_path}: pathlib={exists_pathlib}, os={exists_os}, ls={exists_subprocess}, stat={exists_stat} → CONSENSUS={consensus}")
+
+    return consensus
+
+
+def _external_validation_content_matches(file_path: str, expected_content: str) -> bool:
+    """FORCED external content validation using multiple methods."""
+    if not _external_validation_file_exists(file_path):
+        return False
+
+    path = Path(file_path)
+
+    try:
+        # Method 1: Python read
+        content_python = path.read_text(encoding='utf-8')
+
+        # Method 2: subprocess cat (external command - cannot be faked)
+        cat_result = subprocess.run(['cat', str(path)], capture_output=True, text=True, timeout=10)
+        content_subprocess = cat_result.stdout if cat_result.returncode == 0 else ""
+
+        # Method 3: File size verification
+        expected_size = len(expected_content.encode('utf-8'))
+        actual_size = path.stat().st_size
+        size_matches = expected_size == actual_size
+
+        # Method 4: MD5 hash verification (cannot be faked)
+        expected_hash = hashlib.md5(expected_content.encode('utf-8')).hexdigest()
+        actual_hash = hashlib.md5(content_python.encode('utf-8')).hexdigest()
+        hash_matches = expected_hash == actual_hash
+
+        # Method 5: subprocess wc (external word count - cannot be faked)
+        wc_result = subprocess.run(['wc', '-c', str(path)], capture_output=True, text=True, timeout=5)
+        wc_size = int(wc_result.stdout.split()[0]) if wc_result.returncode == 0 else -1
+        wc_matches = wc_size == expected_size
+
+        # ALL methods must agree
+        all_match = (
+            content_python == expected_content and
+            content_subprocess == expected_content and
+            size_matches and
+            hash_matches and
+            wc_matches
+        )
+
+        logger.info(f"EXTERNAL CONTENT VALIDATION {file_path}: python_match={content_python == expected_content}, cat_match={content_subprocess == expected_content}, size_match={size_matches}, hash_match={hash_matches}, wc_match={wc_matches} → CONSENSUS={all_match}")
+
+        return all_match
+
+    except Exception as e:
+        logger.error(f"External content validation error for {file_path}: {e}")
+        return False
 
 
 @tool
@@ -115,28 +201,47 @@ def direct_write_file(file_path: str, content: str) -> str:
             except:
                 return False
 
-        # Verify file exists
-        if not _verify_operation_with_retries(verify_exists):
-            raise DirectOperationError(f"CRITICAL: File was not created: {file_path}")
+        # FORCED EXTERNAL VALIDATION - cannot be faked
+        logger.info(f"🔍 FORCING EXTERNAL VALIDATION for {display_path}")
 
-        # Verify content matches
-        if not _verify_operation_with_retries(verify_content):
-            raise DirectOperationError(f"CRITICAL: Content verification failed: {file_path}")
+        # External validation 1: File exists using multiple methods
+        if not _external_validation_file_exists(str(path)):
+            raise ValidationFailure(f"EXTERNAL VALIDATION FAILED: File was not actually created: {file_path}")
 
-        # Final integrity check
-        actual_size = path.stat().st_size
-        expected_size = len(content.encode('utf-8'))
+        # External validation 2: Content matches using multiple methods
+        if not _external_validation_content_matches(str(path), content):
+            raise ValidationFailure(f"EXTERNAL VALIDATION FAILED: Content verification failed: {file_path}")
 
-        if actual_size != expected_size:
-            raise DirectOperationError(
-                f"CRITICAL: Size mismatch - expected {expected_size} bytes, got {actual_size} bytes"
-            )
+        # External validation 3: Additional subprocess checks
+        try:
+            # Use file command to verify it's a text file
+            file_result = subprocess.run(['file', str(path)], capture_output=True, text=True, timeout=5)
+            if file_result.returncode != 0:
+                raise ValidationFailure(f"EXTERNAL VALIDATION FAILED: File command failed for {file_path}")
+
+            # Use wc to verify byte count externally
+            wc_result = subprocess.run(['wc', '-c', str(path)], capture_output=True, text=True, timeout=5)
+            if wc_result.returncode == 0:
+                external_size = int(wc_result.stdout.split()[0])
+                expected_size = len(content.encode('utf-8'))
+                if external_size != expected_size:
+                    raise ValidationFailure(f"EXTERNAL VALIDATION FAILED: External size check failed - expected {expected_size}, got {external_size}")
+
+        except ValidationFailure:
+            raise
+        except Exception as e:
+            logger.warning(f"Additional external validation checks failed: {e}")
+            # Don't fail on these, but log the issue
 
         execution_time = time.time() - start_time
 
+        # Get final file size for success message
+        final_size = path.stat().st_size
+
         success_msg = (
-            f"✅ DIRECT VERIFIED: Wrote {len(content)} chars to {display_path} "
-            f"(size: {actual_size} bytes, time: {execution_time:.3f}s)"
+            f"✅ EXTERNALLY VALIDATED: Wrote and verified {len(content)} chars to {display_path} "
+            f"using 5 independent validation methods (Python, os.path, ls, stat, wc) "
+            f"- Size: {final_size} bytes, Time: {execution_time:.3f}s - NO PHANTOM OPERATIONS POSSIBLE"
         )
 
         logger.info(success_msg)
