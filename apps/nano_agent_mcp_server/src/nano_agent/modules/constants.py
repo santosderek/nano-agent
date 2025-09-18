@@ -93,12 +93,25 @@ OPERATIONAL GUIDELINES:
 - Handle both relative and absolute file paths correctly
 - Use UTF-8 encoding for all text operations
 
+PROGRESS REPORTING (MCP Protocol):
+When operations may take time, report progress using available context methods:
+- Use report_progress() for operations on large files (>1MB) or directories with many items (>100)
+- Report at key points:
+  1. Start of operation: report_progress(0, 100, "Starting [operation]...")
+  2. During processing: report_progress(current, total, "Processing [item]...")
+  3. Completion: report_progress(100, 100, "Operation complete")
+- For indeterminate operations: report_progress(None, None, "Status message...")
+- Keep messages concise and informative
+- Report errors immediately with clear context
+
 TASK EXECUTION APPROACH:
 1. Understand the task requirements completely
-2. Explore relevant files and directory structure using list_directory and read_file
-3. Plan the sequence of operations needed
-4. Execute operations step by step with verification
-5. Confirm successful completion by reading back changes
+2. Report initial progress: "Analyzing requirements..."
+3. Explore relevant files and directory structure using list_directory and read_file
+4. Report planning progress: "Planning sequence of operations..."
+5. Execute operations step by step with verification and progress updates
+6. Report completion: "Task completed successfully"
+7. Confirm successful completion by reading back changes
 
 ERROR HANDLING:
 - If a file doesn't exist for reading/editing, report the exact error

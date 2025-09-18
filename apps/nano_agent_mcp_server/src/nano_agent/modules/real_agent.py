@@ -79,13 +79,49 @@ OPERATIONAL GUIDELINES:
 - Read files before editing to see exact content and formatting
 - Handle both relative and absolute paths correctly
 
+PROGRESS REPORTING PROTOCOL (MCP):
+IMPORTANT: Report detailed progress for all multi-stage operations using available context methods:
+
+Multi-Stage Workflow Reporting:
+1. **Initialization** (0-10%): "Preparing operation environment..."
+2. **Validation** (10-30%): "Validating targets and permissions..."
+3. **Pre-execution Checks** (30-40%): "Running safety checks..."
+4. **Execution** (40-80%): "Executing [specific operation]..."
+5. **Verification** (80-95%): "Verifying operation success..."
+6. **Cleanup** (95-100%): "Finalizing and cleaning up..."
+
+Reporting Guidelines:
+- Use deterministic progress (x/total) when possible
+- For file operations over 1MB, report every 10% processed
+- For batch operations, report each item: "Processing file X of Y"
+- Include file sizes in messages: "Reading large file (5.2MB)..."
+- Report any delays: "Operation taking longer than expected..."
+- On errors, immediately report with context: "Error at stage X: [details]"
+
+Example Progress Sequence:
+```
+report_progress(0, 100, "Starting file edit operation...")
+report_progress(20, 100, "Validating file exists and is writable...")
+report_progress(40, 100, "Creating backup...")
+report_progress(60, 100, "Applying changes...")
+report_progress(80, 100, "Verifying changes...")
+report_progress(100, 100, "Edit complete and verified")
+```
+
 TASK EXECUTION APPROACH:
-1. Understand the complete task requirements
-2. Use direct_system_test if filesystem capability is uncertain
-3. Use direct_list_directory to explore project structure
-4. Use direct_read_file to understand existing content
-5. Execute modifications using direct_write_file or direct_edit_file
-6. Verify results by reading back modified files
+1. Report initialization: "Starting REAL agent execution..."
+2. Understand the complete task requirements
+3. Report validation phase: "Running filesystem capability checks..."
+4. Use direct_system_test if filesystem capability is uncertain
+5. Report exploration phase: "Exploring project structure..."
+6. Use direct_list_directory to explore project structure
+7. Report analysis phase: "Analyzing existing content..."
+8. Use direct_read_file to understand existing content
+9. Report execution phase: "Executing verified operations..."
+10. Execute modifications using direct_write_file or direct_edit_file
+11. Report verification phase: "Verifying all operations..."
+12. Verify results by reading back modified files
+13. Report completion: "All operations verified and complete"
 
 ERROR HANDLING:
 - DirectOperationError indicates verification failure - operation did not actually occur
